@@ -385,6 +385,8 @@ struct PortRow: View {
         HStack(spacing: 10) {
             Text(verbatim: ":\(port.port)")
                 .font(.system(.body, design: .monospaced).weight(.semibold))
+                .foregroundStyle(hovering ? Color.accentColor : .primary)
+                .underline(hovering)
                 .frame(width: 64, alignment: .leading)
 
             Image(nsImage: store.icon(for: port))
@@ -423,9 +425,21 @@ struct PortRow: View {
         .frame(height: 48)
         .background(hovering ? Color.primary.opacity(0.06) : .clear)
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
-        .help(port.commandLine ?? port.command)
+        .onHover { inside in
+            hovering = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .onDisappear { if hovering { NSCursor.pop() } }
+        // 행 안의 종료 버튼은 자기 클릭을 먼저 처리하므로 여기로 오지 않는다.
+        .onTapGesture { openInBrowser() }
+        .help("클릭하면 \(localURL.absoluteString) 열기\n\(port.commandLine ?? port.command)")
         .contextMenu { menu }
+    }
+
+    private var localURL: URL { URL(string: "http://localhost:\(port.port)")! }
+
+    private func openInBrowser() {
+        NSWorkspace.shared.open(localURL)
     }
 
     private var subtitle: String {
@@ -467,9 +481,7 @@ struct PortRow: View {
 
     @ViewBuilder
     private var menu: some View {
-        Button("브라우저에서 열기") {
-            if let url = URL(string: "http://localhost:\(port.port)") { NSWorkspace.shared.open(url) }
-        }
+        Button("브라우저에서 열기") { openInBrowser() }
         Divider()
         Button("종료 (SIGTERM)") { store.kill(port, force: false) }
         Button("강제 종료 (SIGKILL)") { store.kill(port, force: true) }
